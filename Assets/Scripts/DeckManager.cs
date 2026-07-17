@@ -11,6 +11,8 @@ public class DeckManager : MonoBehaviour
     [Header("블록이 생성될 위치 배열")]
     public Transform[] spawnPoints;
 
+    // 현재 덱에 스폰된 실제 블록 오브젝트들을 추적하기 위한 배열
+    private GameObject[] currentBlocks = new GameObject[3];
     // 현재 하단 덱에 남아있는 잉여 블록 개수
     private int activeBlocks = 0;
 
@@ -22,13 +24,14 @@ public class DeckManager : MonoBehaviour
     void Start()
     {
         // 게임 시작 시 3개의 블록을 스폰하는 함수 호출
-        SpawnBlocks();    
+        SpawnBlocks();
+        BoardManager.Instance.CheckGameOver(currentBlocks);
     }
 
     public void SpawnBlocks()
     {
         activeBlocks = 3;
-        
+
         // 스폰 포인트의 개수(3개)만큼 반복
         for (int i = 0 ; i < spawnPoints.Length; i++)
         {
@@ -36,9 +39,13 @@ public class DeckManager : MonoBehaviour
             int randomIndex = Random.Range(0, blockPrefabs.Length);
 
             // 선택된 랜덤 블록을 해당 스폰 위치에 생성
-            Instantiate(blockPrefabs[randomIndex], spawnPoints[i].position, Quaternion.identity);
+            GameObject newBlock = Instantiate(blockPrefabs[randomIndex], spawnPoints[i].position, Quaternion.identity);
+            currentBlocks[i] = newBlock;
         }
         Debug.Log("하단 덱에 랜덤 블록 3개가 스폰되었습니다!");
+
+        // 새 블록이 스폰되었을 때도 놓을 공간이 있는지 검사
+        BoardManager.Instance.CheckGameOver(currentBlocks);
     }
 
     // 블록이 보드판에 성공적으로 배치될 때마다 호출될 함수
@@ -50,7 +57,12 @@ public class DeckManager : MonoBehaviour
         if (activeBlocks <= 0)
         {
             Debug.Log("덱을 모두 소모하여 새로 리필합니다!");
-            SpawnBlocks();
+            SpawnBlocks();  // 이 안에서 CheckGameOver()가 자동으로 호출됨
+        }
+        else
+        {
+            // 블록을 하나 배치한 직후, 남은 블록들이 들어갈 자리가 있는지 검사
+            BoardManager.Instance.CheckGameOver(currentBlocks);
         }
     }
 }
