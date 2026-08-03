@@ -23,9 +23,13 @@ public class DeckManager : MonoBehaviour
 
     void Start()
     {
-        // 게임 시작 시 3개의 블록을 스폰하는 함수 호출
+            // 보드가 먼저 초기화되도록 살짝 지연 후 스폰
+            Invoke(nameof(InitialSpawn), 0.1f);
+    }
+
+    void InitialSpawn()
+    {
         SpawnBlocks();
-        BoardManager.Instance.CheckGameOver(currentBlocks);
     }
 
     public void SpawnBlocks()
@@ -40,6 +44,10 @@ public class DeckManager : MonoBehaviour
 
             // 선택된 랜덤 블록을 해당 스폰 위치에 생성
             GameObject newBlock = Instantiate(blockPrefabs[randomIndex], spawnPoints[i].position, Quaternion.identity);
+
+            // [스케일] 덱에서는 작게 표시
+            newBlock.transform.localScale = Vector3.one * 0.4f;  // BlockDrag의 deckScale과 같은 값
+
             currentBlocks[i] = newBlock;
         }
         Debug.Log("하단 덱에 랜덤 블록 3개가 스폰되었습니다!");
@@ -52,7 +60,9 @@ public class DeckManager : MonoBehaviour
     public void BlockPlaced()
     {
         activeBlocks --; // 남은 블록 수 1개 감소
-
+        
+        Debug.Log($"블록 배치됨! 남은 activeBlocks: {activeBlocks}");  // 이 줄 추가
+        
         // 덱이 텅 비었다면 3개 새로 스폰
         if (activeBlocks <= 0)
         {

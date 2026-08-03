@@ -1,50 +1,134 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class BlockDrag : MonoBehaviour
 {
     private Vector3 offset;
     private Vector3 startPosition;
 
-    // 1. 마우스를 클릭하는 순간 1회 실행
-    void OnMouseDown()
+    [Header("덱 표시 크기")]
+    [SerializeField] private float deckScale = 0.4f;   // 덱에 있을 때 축소 비율
+
+    [Header("Shadow 연출")]
+    [SerializeField] private Vector3 shadowOffset = new Vector3(0.2f, -0.2f, 0f);
+    [SerializeField] private float shadowScaleUp = 1.15f;
+    [SerializeField] private float shadowAlpha = 0.82f;
+
+    private List<Transform> shadows = new List<Transform>();
+    private List<Vector3> shadowBasePositions = new List<Vector3>();
+    private List<SpriteRenderer> shadowRenderers = new List<SpriteRenderer>();
+    
+    [Header("드래그 시 최상단 표시")]
+    [SerializeField] private int dragSortingOrder = 100;    // 드래그 중일 때 order
+
+    private Dictionary<SpriteRenderer, int> originalOrders = new Dictionary<SpriteRenderer, int>();
+
+
+    void Start()
     {
-        // 나중에 스냅 실패 시 돌아올 원래 우치 저장
-        startPosition = transform.position;
+        CreateShadows();
 
-        // 마우스의 화면 좌표를 게임 좌표로 변환
-        Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-
-        // 마우스 클릭 지점과 블록 중심점 사이의 거리(offset)계산
-        offset = transform.position - mousePos;
+        // 각 Part의 원래 sorting order 저장 (그림자 제외)
+        foreach (Transform child in transform)
+        {
+            if (child.name == "Shadow_Auto") continue;
+            SpriteRenderer sr = child.GetComponent<SpriteRenderer>();
+            if (sr != null) originalOrders[sr] = sr.sortingOrder;
+        }
     }
 
-    // 2. 마우스를 누른 채로 움직이는 동안 계속 실행
+    void CreateShadows()
+    {
+        List<Transform> parts = new List<Transform>();
+        foreach (Transform child in transform) parts.Add(child);
+
+        foreach (Transform part in parts)
+        {
+            SpriteRenderer partSR = part.GetComponent<SpriteRenderer>();
+            if (partSR == null) continue;
+
+            GameObject shadowObj = Instantiate(part.gameObject, transform);
+            shadowObj.name = "Shadow_Auto";
+
+            foreach (var c in shadowObj.GetComponents<MonoBehaviour>()) Destroy(c);
+            foreach (var col in shadowObj.GetComponents<Collider2D>()) Destroy(col);
+            foreach (Transform grand in shadowObj.transform) Destroy(grand.gameObject);
+
+            SpriteRenderer shadowSR = shadowObj.GetComponent<SpriteRenderer>();
+            shadowSR.color = new Color(0f, 0f, 0f, shadowAlpha);
+            shadowSR.sortingOrder = partSR.sortingOrder - 1;
+
+            Transform st = shadowObj.transform;
+            st.localScale = part.localScale * shadowScaleUp;
+
+            shadows.Add(st);
+            shadowBasePositions.Add(part.localPosition);
+            shadowRenderers.Add(shadowSR);
+
+            st.localPosition = part.localPosition;
+            shadowSR.enabled = false;
+        }
+    }
+
+    void OnMouseDown()
+    {
+        // 집어들면 원래 크기(1) 적용
+        transform.localScale = Vector3.one;
+
+        // 드래그 시작 시 모든 Part를 맨 앞으로
+        foreach (var pair in originalOrders)
+        {
+            pair.Key.sortingOrder = dragSortingOrder;
+        }
+
+        startPosition = transform.position;
+        Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        offset = transform.position - mousePos;
+
+        for (int i = 0; i < shadows.Count; i++)
+        {
+            shadowRenderers[i].enabled = true;
+            shadowRenderers[i].sortingOrder = dragSortingOrder - 1;     // 그림자도 앞으로 (part-1)
+            shadows[i].localPosition = shadowBasePositions[i] + shadowOffset;
+        }
+
+        RetroAudio.Instance.PlayPickup();
+    }
+
     void OnMouseDrag()
     {
         Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-
-        // 마우스 위치 + 오프셋 위치로 블록 이동 (Z축은 0으로 고정)
         transform.position = new Vector3(mousePos.x + offset.x, mousePos.y + offset.y, 0);
     }
 
-    // 3. 마우스 클릭을 떼는 순간 1회 실행
     void OnMouseUp()
     {
+        // 드래그 끝나면 원래 order로 복구
+        foreach(var pair in originalOrders)
+        {
+            pair.Key.sortingOrder = pair.Value;
+        }
+
+        for (int i = 0; i < shadows.Count; i++)
+        {
+            shadows[i].localPosition = shadowBasePositions[i];
+            shadowRenderers[i].enabled = false;
+        }
+
         bool canPlace = true;
 
-        // 1. 블록에 달려있는 모든 하위 파트들을 순회하며 검사
         foreach (Transform child in transform)
         {
+            if (child.name == "Shadow_Auto") continue;
+
             Vector2Int gridIndex = BoardManager.Instance.GetGridIndex(child.position);
 
-            // [에러 원인 A] 보드판 밖으로 나갔는지 체크
             if (gridIndex.x < 0 || gridIndex.x >= BoardManager.Instance.width || gridIndex.y < 0 || gridIndex.y >= BoardManager.Instance.height)
             {
                 Debug.Log($"[배치 실패] 범위를 벗어났습니다! 시도한 인덱스: ({gridIndex.x}, {gridIndex.y})");
                 canPlace = false;
                 break;
             }
-            // [에러 원인 B] 이미 블록이 놓여 있는지(배열 값이 1인지) 체크
             else if (BoardManager.Instance.gridData[gridIndex.x, gridIndex.y] == 1)
             {
                 Debug.Log($"[배치 실패] 이미 블록이 있습니다! 시도한 인덱스: ({gridIndex.x}, {gridIndex.y})");
@@ -53,35 +137,35 @@ public class BlockDrag : MonoBehaviour
             }
         }
 
-        // 2. 판정 결과에 따른 처리
         if (canPlace)
         {
+            RetroAudio.Instance.PlayDrop();
+
             Vector2Int parentGridIndex = BoardManager.Instance.GetGridIndex(transform.position);
             transform.position = BoardManager.Instance.GetWorldPosition(parentGridIndex.x, parentGridIndex.y);
 
             foreach (Transform child in transform)
             {
+                if (child.name == "Shadow_Auto") continue;
+
                 Vector2Int gridIndex = BoardManager.Instance.GetGridIndex(child.position);
-                
-                // 숫자 데이터 배열을 1로 업데이트
-                BoardManager.Instance.gridData[gridIndex.x, gridIndex.y] = 1; 
-                
-                // 시각적 오브젝트 데이터를 배열에 저장
-                BoardManager.Instance.boardObjects[gridIndex.x, gridIndex.y] = child.gameObject; 
+                BoardManager.Instance.gridData[gridIndex.x, gridIndex.y] = 1;
+                BoardManager.Instance.boardObjects[gridIndex.x, gridIndex.y] = child.gameObject;
             }
 
             this.enabled = false;
             GetComponent<BoxCollider2D>().enabled = false;
 
-            // 빙고가 완성되었는지 검사 실행
-            BoardManager.Instance.CheckAndClearLines();
+            foreach (var sr in shadowRenderers) sr.enabled = false;
 
-            // 덱 매니저에게 블록 하나 썻다고 알림
+            BoardManager.Instance.CheckAndClearLines();
             DeckManager.Instance.BlockPlaced();
         }
         else
         {
-            transform.position = startPosition; // 실패 시 덱으로 원복
+            // [스케일] 배치 실패로 덱에 돌아가면 다시 작게
+            transform.position = startPosition;
+            transform.localScale = Vector3.one * deckScale;
         }
     }
 }
