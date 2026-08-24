@@ -17,7 +17,7 @@ public class BlockDrag : MonoBehaviour
     private List<Transform> shadows = new List<Transform>();
     private List<Vector3> shadowBasePositions = new List<Vector3>();
     private List<SpriteRenderer> shadowRenderers = new List<SpriteRenderer>();
-    
+
     [Header("드래그 시 최상단 표시")]
     [SerializeField] private int dragSortingOrder = 100;    // 드래그 중일 때 order
 
@@ -104,7 +104,7 @@ public class BlockDrag : MonoBehaviour
     void OnMouseUp()
     {
         // 드래그 끝나면 원래 order로 복구
-        foreach(var pair in originalOrders)
+        foreach (var pair in originalOrders)
         {
             pair.Key.sortingOrder = pair.Value;
         }
@@ -152,6 +152,15 @@ public class BlockDrag : MonoBehaviour
                 BoardManager.Instance.gridData[gridIndex.x, gridIndex.y] = 1;
                 BoardManager.Instance.boardObjects[gridIndex.x, gridIndex.y] = child.gameObject;
             }
+
+            // 블록 배치 점수 (칸 당 1점) — 배치 성공했을 때만 지급
+            int blockCellCount = 0;
+            foreach (Transform child in transform)
+            {
+                if (child.name == "Shadow_Auto") continue;
+                blockCellCount++;
+            }
+            BoardManager.Instance.AddScore(blockCellCount);
 
             this.enabled = false;
             GetComponent<BoxCollider2D>().enabled = false;

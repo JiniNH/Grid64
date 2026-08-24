@@ -102,6 +102,7 @@ GameObject:
   - component: {fileID: 5503209161619187360}
   - component: {fileID: 8270316846062458035}
   - component: {fileID: 5408351755859666211}
+  - component: {fileID: 3374510821517092943}
   m_Layer: 0
   m_Name: Block_2x3
   m_TagString: Untagged
@@ -193,6 +194,20 @@ MonoBehaviour:
   shadowScaleUp: 1.15
   shadowAlpha: 0.82
   dragSortingOrder: 100
+--- !u!114 &3374510821517092943
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2423557895711406408}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7eb469a1d6844c94ab27ff41d263bb9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BlockInfo
+  tier: 3
+  weight: 7
 --- !u!1 &3345793218239771270
 GameObject:
   m_ObjectHideFlags: 0

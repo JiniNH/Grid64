@@ -102,6 +102,7 @@ GameObject:
   - component: {fileID: 1151979538457036655}
   - component: {fileID: 3149747691880129956}
   - component: {fileID: 1779768828727792983}
+  - component: {fileID: 1335557977032371458}
   m_Layer: 0
   m_Name: Block_LL4
   m_TagString: Untagged
@@ -192,6 +193,20 @@ MonoBehaviour:
   shadowScaleUp: 1.15
   shadowAlpha: 0.82
   dragSortingOrder: 100
+--- !u!114 &1335557977032371458
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 245529651949598434}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7eb469a1d6844c94ab27ff41d263bb9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BlockInfo
+  tier: 2
+  weight: 3
 --- !u!1 &2316416056646809932
 GameObject:
   m_ObjectHideFlags: 0

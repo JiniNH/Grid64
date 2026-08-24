@@ -284,6 +284,7 @@ GameObject:
   - component: {fileID: 8263633709078955134}
   - component: {fileID: 6423145337556121780}
   - component: {fileID: 4110592781474716336}
+  - component: {fileID: 4783120802553619269}
   m_Layer: 0
   m_Name: Block_L2
   m_TagString: Untagged
@@ -367,6 +368,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 42fba00686308a248b826f81760e5077, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BlockDrag
+  deckScale: 0.4
   shadowOffset: {x: 0.2, y: -0.2, z: 0}
   shadowScaleUp: 1.15
   shadowAlpha: 0.82
+  dragSortingOrder: 100
+--- !u!114 &4783120802553619269
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8028279860773344754}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7eb469a1d6844c94ab27ff41d263bb9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BlockInfo
+  tier: 1
+  weight: 2

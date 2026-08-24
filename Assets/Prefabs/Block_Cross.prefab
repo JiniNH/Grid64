@@ -284,6 +284,7 @@ GameObject:
   - component: {fileID: 1780692087526714452}
   - component: {fileID: 37189575505492160}
   - component: {fileID: 7464343669457354735}
+  - component: {fileID: 5822939400563064813}
   m_Layer: 0
   m_Name: Block_Cross
   m_TagString: Untagged
@@ -374,6 +375,20 @@ MonoBehaviour:
   shadowScaleUp: 1.15
   shadowAlpha: 0.82
   dragSortingOrder: 100
+--- !u!114 &5822939400563064813
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7115732391963247820}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7eb469a1d6844c94ab27ff41d263bb9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BlockInfo
+  tier: 3
+  weight: 2
 --- !u!1 &8117635900907704464
 GameObject:
   m_ObjectHideFlags: 0

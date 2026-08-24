@@ -284,6 +284,7 @@ GameObject:
   - component: {fileID: 5767749618424942534}
   - component: {fileID: 6823089607126047993}
   - component: {fileID: 7361114096503828088}
+  - component: {fileID: 8517771641249334120}
   m_Layer: 0
   m_Name: Block_Z3
   m_TagString: Untagged
@@ -372,3 +373,17 @@ MonoBehaviour:
   shadowScaleUp: 1.15
   shadowAlpha: 0.82
   dragSortingOrder: 100
+--- !u!114 &8517771641249334120
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6211566694557865394}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7eb469a1d6844c94ab27ff41d263bb9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BlockInfo
+  tier: 1
+  weight: 2

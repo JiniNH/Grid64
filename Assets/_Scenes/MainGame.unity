@@ -1122,6 +1122,7 @@ MonoBehaviour:
   explosionParticlePrefab: {fileID: 7139396922991928784, guid: ec7c49fe7e17a444cbdd13d050e93d2c, type: 3}
   currentCombo: 0
   comboText: {fileID: 1310542479}
+  finalScoreText: {fileID: 258569012}
   width: 8
   height: 8
   tilePrefab: {fileID: 5021124535404571406, guid: 9642769bd09cbd7449619ac14bec885a, type: 3}

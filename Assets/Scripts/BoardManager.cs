@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -10,9 +11,10 @@ public class BoardManager : MonoBehaviour
     public static BoardManager Instance;
 
     [Header("UI 설정")]
-    public TextMeshProUGUI scoreText;   // 에디터에서 연결할 텍스트 UI
-    public GameObject gameOverPopup;    // 팝업 패널 연결용
-    private int currentScore = 0;       // 현재 점수를 기억할 변수
+    public TextMeshProUGUI scoreText;       // 에디터에서 연결할 텍스트 UI
+    public GameObject gameOverPopup;        // 팝업 패널 연결용
+    public TextMeshProUGUI finalScoreText;  // 게임오버 팝업의 최종 점수 텍스트
+    private int currentScore = 0;           // 현재 점수를 기억할 변수
 
     [Header("이펙트 설정")]
     public GameObject explosionParticlePrefab;  // 파티클 프리팹 연결
@@ -22,6 +24,22 @@ public class BoardManager : MonoBehaviour
     public TextMeshProUGUI comboText;   // 콤보 글자를 띄워줄 UI
 
     private Coroutine comboRoutine;     // 실행 중인 콤보 연출 추적용
+
+    [Header("피버타임 설정")]
+    public float feverGauge = 0f;           // 현재 게이지 (0~100)
+    public float feverMax = 100f;           // 최대치
+    public float feverChargeCombo = 15f;    // 2콤보 이상 유지 시
+    public float feverChargeMulti = 20f;    // 다중 클리어(2줄 이상) 시
+    public float feverChargePerfect = 25f;  // Perfect(교차) 시
+    public float feverDuration = 10f;       // 피버 지속 시간(초)
+    public float feverMultiplier = 2f;      // 피버 중 점수 배수
+
+    private bool isFeverActive = false;     // 피버 진행 중인지
+    private Coroutine feverRoutine;         // 피버 타이머 추적
+
+    [Header("피버 UI (선택)")]
+    public Image feverGaugeBar;             // 게이지 바 (Fill 방식)
+    public TextMeshProUGUI feverText;       // "FEVER TIME!" 표시용
 
     public int width = 8;
     public int height = 8;
@@ -45,6 +63,7 @@ public class BoardManager : MonoBehaviour
     void Start()
     {
         InitializeBoard();
+        UpdateFeverUI();
     }
 
     void InitializeBoard()
@@ -97,8 +116,8 @@ public class BoardManager : MonoBehaviour
     {
         List<Vector2Int> linesToClear = new List<Vector2Int>();
 
-        // 이번 턴에 지워진 줄 수를 기억할 변수
-        int linesClearedCount = 0;
+        int rowCleared = 0;   // 지운 가로줄 수
+        int colCleared = 0;   // 지운 세로줄 수
 
         // 가로줄(row) 검사
         for (int y = 0; y < height; y++)
@@ -110,7 +129,7 @@ public class BoardManager : MonoBehaviour
             }
             if (isRowFull)
             {
-                linesClearedCount++;
+                rowCleared++;
                 for (int x = 0; x < width; x++) linesToClear.Add(new Vector2Int(x, y));
             }
         }
@@ -125,10 +144,12 @@ public class BoardManager : MonoBehaviour
             }
             if (isColFull)
             {
-                linesClearedCount++;
+                colCleared++;
                 for (int y = 0; y < height; y++) linesToClear.Add(new Vector2Int(x, y));
             }
         }
+
+        int linesClearedCount = rowCleared + colCleared;  // 총 지운 줄 수
 
         // 꽉 찬 줄의 오브젝트 파괴 및 배열 초기화
         foreach (Vector2Int pos in linesToClear)
@@ -154,31 +175,69 @@ public class BoardManager : MonoBehaviour
 
         if (linesClearedCount > 0)
         {
-            // 줄을 지웠으니 콤보 증가
-            currentCombo++;
+            currentCombo++;                                 // 줄을 지웠으니 콤보 증가
+            RetroAudio.Instance.PlayClear(currentCombo);    // 클리어 사운드 (콤보에 따라 음 상승)
 
-            // 클리어 사운드 (콤보 수를 넘겨서 음이 점점 올라가게)
-            RetroAudio.Instance.PlayClear(currentCombo);
+            // 줄당 보너스 점수 (동시에 많이 지울수록 칸당 가치 상승)
+            int perCell = 0;
+            if (linesClearedCount == 1) perCell = 100;
+            else if (linesClearedCount == 2) perCell = 150;
+            else perCell = 200;                             // 3줄 이상
 
-            // 점수 배수 로직 (1줄=100, 2줄=300, 3줄=600...)
-            int earnedScore = 0;
-            if (linesClearedCount == 1) earnedScore = 100;
-            else if (linesClearedCount == 2) earnedScore = 300;
-            else if (linesClearedCount == 3) earnedScore = 600;
-            else earnedScore = 1000;
+            // 지운 총 칸 수 (지운 줄 수 x 8칸)
+            int totalCells = linesClearedCount * width;
 
-            // 콤보 보너스 점수 추가 (2콤보부터 50점씩 추가)
+            // 콤보 배수
+            float comboMultiplier = 1f + 0.1f * (currentCombo - 1);
+
+            // 최종 = 총칸수 x 칸당점수 x 콤보배수
+            int earnedScore = Mathf.RoundToInt(totalCells * perCell * comboMultiplier);
+
+            // [Perfect] 가로+세로 동시 클리어 = 교차 클리어 보너스
+            bool isPerfect = (rowCleared > 0 && colCleared > 0);
+            if (isPerfect)
+            {
+                earnedScore = Mathf.RoundToInt(earnedScore * 1.5f);
+                Debug.Log($"✨ PERFECT! 교차 클리어 (가로 {rowCleared} + 세로 {colCleared}) → 보너스 1.5배");
+            }
+
+            // [피버] 피버 중이면 점수 2배
+            if (isFeverActive)
+            {
+                earnedScore = Mathf.RoundToInt(earnedScore * feverMultiplier);
+            }
+
             if (currentCombo > 1)
             {
-                int comboBonus = (currentCombo - 1) * 50;
-                earnedScore += comboBonus;
-
-                // 콤보 UI 표시 (잠깐 떴다 자동으로 사라짐)
-                ShowComboText(currentCombo);
+                ShowComboText(currentCombo); // 콤보 텍스트 띄우기
             }
 
             AddScore(earnedScore);
-            Debug.Log($"{linesClearedCount}줄 클리어! 콤보 {currentCombo}, +{earnedScore}점");
+
+            // [피버] 게이지 충전 — 테크니컬 클리어에만 반응 (기본 클리어는 충전 없음)
+            if (!isFeverActive)
+            {
+                float charge = 0f;
+
+                if (currentCombo > 1) charge += feverChargeCombo;        // 콤보 유지
+                if (linesClearedCount >= 2) charge += feverChargeMulti;  // 다중 클리어
+                if (isPerfect) charge += feverChargePerfect;             // 교차 Perfect
+
+                if (charge > 0f)
+                {
+                    feverGauge = Mathf.Min(feverGauge + charge, feverMax);
+                    UpdateFeverUI();
+                    Debug.Log($"⚡ 피버 게이지 +{charge} (현재 {feverGauge:F0}/{feverMax})");
+
+                    if (feverGauge >= feverMax)
+                    {
+                        StartFever();
+                    }
+                }
+            }
+
+            Debug.Log($"{linesClearedCount}줄 클리어! {totalCells}칸 x {perCell} x 콤보{currentCombo}(x{comboMultiplier:F1})" +
+                      $"{(isPerfect ? " x Perfect1.5" : "")}{(isFeverActive ? " x 🔥FEVER2.0" : "")} → +{earnedScore}점");
         }
         else
         {
@@ -190,12 +249,62 @@ public class BoardManager : MonoBehaviour
                 comboText.gameObject.SetActive(false);
             }
         }
+    }
 
-        if (linesToClear.Count > 0)
+    // ===== 피버타임 =====
+
+    // 피버타임 시작
+    private void StartFever()
+    {
+        if (feverRoutine != null) StopCoroutine(feverRoutine);
+        feverRoutine = StartCoroutine(FeverRoutine());
+    }
+
+    private IEnumerator FeverRoutine()
+    {
+        isFeverActive = true;
+        Debug.Log($"🔥🔥🔥 FEVER TIME 시작! {feverDuration}초간 점수 {feverMultiplier}배!");
+
+        // FEVER 텍스트 표시
+        if (feverText != null)
         {
-            Debug.Log("라인 클리어 성공!");
+            feverText.text = "FEVER TIME!";
+            feverText.gameObject.SetActive(true);
+        }
+
+        // 지속 시간 동안 게이지를 서서히 감소시켜 남은 시간을 시각화
+        float elapsed = 0f;
+        while (elapsed < feverDuration)
+        {
+            elapsed += Time.deltaTime;
+            feverGauge = Mathf.Lerp(feverMax, 0f, elapsed / feverDuration);
+            UpdateFeverUI();
+            yield return null;
+        }
+
+        // 종료 처리
+        isFeverActive = false;
+        feverGauge = 0f;
+        UpdateFeverUI();
+
+        if (feverText != null)
+        {
+            feverText.gameObject.SetActive(false);
+        }
+
+        Debug.Log("피버타임 종료");
+    }
+
+    // 게이지 UI 갱신
+    private void UpdateFeverUI()
+    {
+        if (feverGaugeBar != null)
+        {
+            feverGaugeBar.fillAmount = feverGauge / feverMax;
         }
     }
+
+    // ===== 콤보 연출 =====
 
     // 콤보 텍스트를 잠깐 띄웠다가 서서히 사라지게 하는 함수
     private void ShowComboText(int combo)
@@ -231,6 +340,8 @@ public class BoardManager : MonoBehaviour
         comboText.gameObject.SetActive(false);
         comboText.color = new Color(original.r, original.g, original.b, 1f); // 다음을 위해 alpha 복구
     }
+
+    // ===== 게임오버 판정 =====
 
     // 덱에 남은 블록들이 하나라도 들어갈 자리가 있는지 전체 검사
     public bool CheckGameOver(GameObject[] activeBlocks)
@@ -301,6 +412,8 @@ public class BoardManager : MonoBehaviour
         return true;
     }
 
+    // ===== 점수 / 게임오버 UI =====
+
     // 점수를 획득하고 UI 텍스트를 즉시 갱신하는 함수
     public void AddScore(int points)
     {
@@ -317,6 +430,17 @@ public class BoardManager : MonoBehaviour
     public void ShowGameOver()
     {
         gameOverPopup.SetActive(true);  // 숨겨뒀던 팝업 패널을 다시 켜기
+
+        // 피버 UI 숨기기
+        if (feverGaugeBar != null) feverGaugeBar.transform.parent.gameObject.SetActive(false);
+        if (feverText != null) feverText.gameObject.SetActive(false);
+
+        // 최종 점수 표시
+        if (finalScoreText != null)
+        {
+            finalScoreText.text = "Final Score\n" + currentScore.ToString();
+        }
+
         CanvasGroup cg = gameOverPopup.GetComponent<CanvasGroup>();
         if (cg != null)
         {
