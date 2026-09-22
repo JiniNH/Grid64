@@ -82,7 +82,7 @@ SpriteRenderer:
   m_SortingOrder: 10
   m_MaskInteraction: 0
   m_Sprite: {fileID: 5069984308961989220, guid: 0ae38db5dfa90ff4d82dd2e52001f668, type: 3}
-  m_Color: {r: 0.3764706, g: 0.49019608, b: 0.54509807, a: 1}
+  m_Color: {r: 0.3647059, g: 0.6784314, b: 0.8862745, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 1
@@ -192,8 +192,11 @@ MonoBehaviour:
   deckScale: 0.4
   shadowOffset: {x: 0.2, y: -0.2, z: 0}
   shadowScaleUp: 1.15
-  shadowAlpha: 0.82
+  shadowAlpha: 0.25
   dragSortingOrder: 100
+  dragSmoothSpeed: 80
+  deckColliderPadding: 1.2
+  minTouchSize: 2.2
 --- !u!114 &3374510821517092943
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -208,6 +211,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BlockInfo
   tier: 3
   weight: 7
+  useCustomFragmentColor: 1
+  fragmentColor: {r: 0, g: 0.7171314, b: 1, a: 1}
 --- !u!1 &3345793218239771270
 GameObject:
   m_ObjectHideFlags: 0
@@ -290,7 +295,7 @@ SpriteRenderer:
   m_SortingOrder: 10
   m_MaskInteraction: 0
   m_Sprite: {fileID: 5069984308961989220, guid: 0ae38db5dfa90ff4d82dd2e52001f668, type: 3}
-  m_Color: {r: 0.3764706, g: 0.49019608, b: 0.54509807, a: 1}
+  m_Color: {r: 0.3647059, g: 0.6784314, b: 0.8862745, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 1
@@ -381,7 +386,7 @@ SpriteRenderer:
   m_SortingOrder: 10
   m_MaskInteraction: 0
   m_Sprite: {fileID: 5069984308961989220, guid: 0ae38db5dfa90ff4d82dd2e52001f668, type: 3}
-  m_Color: {r: 0.3764706, g: 0.49019608, b: 0.54509807, a: 1}
+  m_Color: {r: 0.3647059, g: 0.6784314, b: 0.8862745, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 1
@@ -472,7 +477,7 @@ SpriteRenderer:
   m_SortingOrder: 10
   m_MaskInteraction: 0
   m_Sprite: {fileID: 5069984308961989220, guid: 0ae38db5dfa90ff4d82dd2e52001f668, type: 3}
-  m_Color: {r: 0.3764706, g: 0.49019608, b: 0.54509807, a: 1}
+  m_Color: {r: 0.3647059, g: 0.6784314, b: 0.8862745, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 1
@@ -563,7 +568,7 @@ SpriteRenderer:
   m_SortingOrder: 10
   m_MaskInteraction: 0
   m_Sprite: {fileID: 5069984308961989220, guid: 0ae38db5dfa90ff4d82dd2e52001f668, type: 3}
-  m_Color: {r: 0.3764706, g: 0.49019608, b: 0.54509807, a: 1}
+  m_Color: {r: 0.3647059, g: 0.6784314, b: 0.8862745, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 1
@@ -654,7 +659,7 @@ SpriteRenderer:
   m_SortingOrder: 10
   m_MaskInteraction: 0
   m_Sprite: {fileID: 5069984308961989220, guid: 0ae38db5dfa90ff4d82dd2e52001f668, type: 3}
-  m_Color: {r: 0.3764706, g: 0.49019608, b: 0.54509807, a: 1}
+  m_Color: {r: 0.3647059, g: 0.6784314, b: 0.8862745, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 1

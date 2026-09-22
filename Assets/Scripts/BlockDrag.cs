@@ -23,6 +23,15 @@ public class BlockDrag : MonoBehaviour
 
     private Dictionary<SpriteRenderer, int> originalOrders = new Dictionary<SpriteRenderer, int>();
 
+    [Header("드래그 감도")]
+    [SerializeField] private float dragSmoothSpeed = 80f;    // 값이 클수록 빠르게 따라옴
+
+    [Header("집었을 때 손가락 위 오프셋")]
+    [Tooltip("손가락에 블록이 가리지 않도록 위로 띄우는 거리")]
+    [SerializeField] private float grabYOffset = 1.2f;
+
+    private Vector3 targetPosition;
+    private bool isDragging = false;
 
     void Start()
     {
@@ -35,6 +44,10 @@ public class BlockDrag : MonoBehaviour
             SpriteRenderer sr = child.GetComponent<SpriteRenderer>();
             if (sr != null) originalOrders[sr] = sr.sortingOrder;
         }
+
+        // 콜라이더는 더 이상 덱 터치에 쓰이지 않으므로 꺼둠
+        BoxCollider2D col = GetComponent<BoxCollider2D>();
+        if (col != null) col.enabled = false;
     }
 
     void CreateShadows()
@@ -70,8 +83,24 @@ public class BlockDrag : MonoBehaviour
         }
     }
 
-    void OnMouseDown()
+    void Update()
     {
+        if (!isDragging) return;
+
+        // 프레임레이트와 무관하게 일정한 추종 속도 (오버슈트 방지)
+        float t = 1f - Mathf.Exp(-dragSmoothSpeed * Time.deltaTime);
+        transform.position = Vector3.Lerp(transform.position, targetPosition, t);
+    }
+
+    // ===== DeckManager가 호출하는 공개 메서드 =====
+
+    // 구역 터치로 집혔을 때
+    public void BeginDrag(Vector3 touchWorldPos)
+    {
+        if (isDragging) return;
+
+        startPosition = transform.position;
+
         // 집어들면 원래 크기(1) 적용
         transform.localScale = Vector3.one;
 
@@ -81,28 +110,38 @@ public class BlockDrag : MonoBehaviour
             pair.Key.sortingOrder = dragSortingOrder;
         }
 
-        startPosition = transform.position;
-        Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-        offset = transform.position - mousePos;
-
         for (int i = 0; i < shadows.Count; i++)
         {
             shadowRenderers[i].enabled = true;
-            shadowRenderers[i].sortingOrder = dragSortingOrder - 1;     // 그림자도 앞으로 (part-1)
+            shadowRenderers[i].sortingOrder = dragSortingOrder - 1;
             shadows[i].localPosition = shadowBasePositions[i] + shadowOffset;
         }
+
+        // 손가락보다 위에 블록이 오도록 오프셋 고정
+        offset = new Vector3(0f, grabYOffset, 0f);
+
+        targetPosition = new Vector3(touchWorldPos.x + offset.x, touchWorldPos.y + offset.y, 0f);
+        isDragging = true;
 
         RetroAudio.Instance.PlayPickup();
     }
 
-    void OnMouseDrag()
+    // 드래그 중 목표 위치 갱신
+    public void DragTo(Vector3 touchWorldPos)
     {
-        Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-        transform.position = new Vector3(mousePos.x + offset.x, mousePos.y + offset.y, 0);
+        if (!isDragging) return;
+        targetPosition = new Vector3(touchWorldPos.x + offset.x, touchWorldPos.y + offset.y, 0f);
     }
 
-    void OnMouseUp()
+    // 손을 뗐을 때 배치 시도
+    public void ReleaseDrag()
     {
+        if (!isDragging) return;
+        isDragging = false;
+
+        // 스냅 판정은 보간 중간값이 아닌 최종 목표 위치 기준
+        transform.position = targetPosition;
+
         // 드래그 끝나면 원래 order로 복구
         foreach (var pair in originalOrders)
         {
@@ -125,13 +164,11 @@ public class BlockDrag : MonoBehaviour
 
             if (gridIndex.x < 0 || gridIndex.x >= BoardManager.Instance.width || gridIndex.y < 0 || gridIndex.y >= BoardManager.Instance.height)
             {
-                Debug.Log($"[배치 실패] 범위를 벗어났습니다! 시도한 인덱스: ({gridIndex.x}, {gridIndex.y})");
                 canPlace = false;
                 break;
             }
             else if (BoardManager.Instance.gridData[gridIndex.x, gridIndex.y] == 1)
             {
-                Debug.Log($"[배치 실패] 이미 블록이 있습니다! 시도한 인덱스: ({gridIndex.x}, {gridIndex.y})");
                 canPlace = false;
                 break;
             }
@@ -153,7 +190,7 @@ public class BlockDrag : MonoBehaviour
                 BoardManager.Instance.boardObjects[gridIndex.x, gridIndex.y] = child.gameObject;
             }
 
-            // 블록 배치 점수 (칸 당 1점) — 배치 성공했을 때만 지급
+            // 블록 배치 점수 (칸 당 1점)
             int blockCellCount = 0;
             foreach (Transform child in transform)
             {
@@ -163,7 +200,6 @@ public class BlockDrag : MonoBehaviour
             BoardManager.Instance.AddScore(blockCellCount);
 
             this.enabled = false;
-            GetComponent<BoxCollider2D>().enabled = false;
 
             foreach (var sr in shadowRenderers) sr.enabled = false;
 
@@ -172,7 +208,7 @@ public class BlockDrag : MonoBehaviour
         }
         else
         {
-            // [스케일] 배치 실패로 덱에 돌아가면 다시 작게
+            // 배치 실패 → 덱으로 복귀
             transform.position = startPosition;
             transform.localScale = Vector3.one * deckScale;
         }

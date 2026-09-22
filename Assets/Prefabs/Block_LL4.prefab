@@ -82,7 +82,7 @@ SpriteRenderer:
   m_SortingOrder: 10
   m_MaskInteraction: 0
   m_Sprite: {fileID: 5069984308961989220, guid: 0ae38db5dfa90ff4d82dd2e52001f668, type: 3}
-  m_Color: {r: 0.5529412, g: 0.43137255, b: 0.3882353, a: 1}
+  m_Color: {r: 0.28235295, g: 0.81960785, b: 0.627451, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 1
@@ -191,8 +191,11 @@ MonoBehaviour:
   deckScale: 0.4
   shadowOffset: {x: 0.2, y: -0.2, z: 0}
   shadowScaleUp: 1.15
-  shadowAlpha: 0.82
+  shadowAlpha: 0.25
   dragSortingOrder: 100
+  dragSmoothSpeed: 80
+  deckColliderPadding: 1.2
+  minTouchSize: 2.2
 --- !u!114 &1335557977032371458
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -207,6 +210,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BlockInfo
   tier: 2
   weight: 3
+  useCustomFragmentColor: 1
+  fragmentColor: {r: 0.13086204, g: 0.990566, b: 0.014017418, a: 1}
 --- !u!1 &2316416056646809932
 GameObject:
   m_ObjectHideFlags: 0
@@ -289,7 +294,7 @@ SpriteRenderer:
   m_SortingOrder: 10
   m_MaskInteraction: 0
   m_Sprite: {fileID: 5069984308961989220, guid: 0ae38db5dfa90ff4d82dd2e52001f668, type: 3}
-  m_Color: {r: 0.5529412, g: 0.43137255, b: 0.3882353, a: 1}
+  m_Color: {r: 0.28235295, g: 0.81960785, b: 0.627451, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 1
@@ -380,7 +385,7 @@ SpriteRenderer:
   m_SortingOrder: 10
   m_MaskInteraction: 0
   m_Sprite: {fileID: 5069984308961989220, guid: 0ae38db5dfa90ff4d82dd2e52001f668, type: 3}
-  m_Color: {r: 0.5529412, g: 0.43137255, b: 0.3882353, a: 1}
+  m_Color: {r: 0.28235295, g: 0.81960785, b: 0.627451, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 1
@@ -471,7 +476,7 @@ SpriteRenderer:
   m_SortingOrder: 10
   m_MaskInteraction: 0
   m_Sprite: {fileID: 5069984308961989220, guid: 0ae38db5dfa90ff4d82dd2e52001f668, type: 3}
-  m_Color: {r: 0.5529412, g: 0.43137255, b: 0.3882353, a: 1}
+  m_Color: {r: 0.28235295, g: 0.81960785, b: 0.627451, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 1
@@ -562,7 +567,7 @@ SpriteRenderer:
   m_SortingOrder: 10
   m_MaskInteraction: 0
   m_Sprite: {fileID: 5069984308961989220, guid: 0ae38db5dfa90ff4d82dd2e52001f668, type: 3}
-  m_Color: {r: 0.5529412, g: 0.43137255, b: 0.3882353, a: 1}
+  m_Color: {r: 0.28235295, g: 0.81960785, b: 0.627451, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 1

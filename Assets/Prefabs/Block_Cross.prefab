@@ -373,8 +373,11 @@ MonoBehaviour:
   deckScale: 0.4
   shadowOffset: {x: 0.2, y: -0.2, z: 0}
   shadowScaleUp: 1.15
-  shadowAlpha: 0.82
+  shadowAlpha: 0.25
   dragSortingOrder: 100
+  dragSmoothSpeed: 80
+  deckColliderPadding: 1.2
+  minTouchSize: 2.2
 --- !u!114 &5822939400563064813
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -388,7 +391,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BlockInfo
   tier: 3
-  weight: 2
+  weight: 1
+  useCustomFragmentColor: 1
+  fragmentColor: {r: 0.9716981, g: 0.37477043, b: 0.041251317, a: 1}
 --- !u!1 &8117635900907704464
 GameObject:
   m_ObjectHideFlags: 0

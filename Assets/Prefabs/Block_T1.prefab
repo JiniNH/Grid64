@@ -99,8 +99,11 @@ MonoBehaviour:
   deckScale: 0.4
   shadowOffset: {x: 0.2, y: -0.2, z: 0}
   shadowScaleUp: 1.15
-  shadowAlpha: 0.82
+  shadowAlpha: 0.25
   dragSortingOrder: 100
+  dragSmoothSpeed: 80
+  deckColliderPadding: 1.2
+  minTouchSize: 2.2
 --- !u!114 &3864005238819967716
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -115,6 +118,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BlockInfo
   tier: 1
   weight: 2
+  useCustomFragmentColor: 1
+  fragmentColor: {r: 0.18792273, g: 0.19010814, b: 0.9716981, a: 1}
 --- !u!1 &3380488510915521209
 GameObject:
   m_ObjectHideFlags: 0
@@ -197,7 +202,7 @@ SpriteRenderer:
   m_SortingOrder: 10
   m_MaskInteraction: 0
   m_Sprite: {fileID: 5069984308961989220, guid: 0ae38db5dfa90ff4d82dd2e52001f668, type: 3}
-  m_Color: {r: 0.36078432, g: 0.41960785, b: 0.7529412, a: 1}
+  m_Color: {r: 0.41960785, g: 0.48235294, b: 0.7882353, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 1
@@ -288,7 +293,7 @@ SpriteRenderer:
   m_SortingOrder: 10
   m_MaskInteraction: 0
   m_Sprite: {fileID: 5069984308961989220, guid: 0ae38db5dfa90ff4d82dd2e52001f668, type: 3}
-  m_Color: {r: 0.36078432, g: 0.41960785, b: 0.7529412, a: 1}
+  m_Color: {r: 0.41960785, g: 0.48235294, b: 0.7882353, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 1
@@ -379,7 +384,7 @@ SpriteRenderer:
   m_SortingOrder: 10
   m_MaskInteraction: 0
   m_Sprite: {fileID: 5069984308961989220, guid: 0ae38db5dfa90ff4d82dd2e52001f668, type: 3}
-  m_Color: {r: 0.36078432, g: 0.41960785, b: 0.7529412, a: 1}
+  m_Color: {r: 0.41960785, g: 0.48235294, b: 0.7882353, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 1
@@ -470,7 +475,7 @@ SpriteRenderer:
   m_SortingOrder: 10
   m_MaskInteraction: 0
   m_Sprite: {fileID: 5069984308961989220, guid: 0ae38db5dfa90ff4d82dd2e52001f668, type: 3}
-  m_Color: {r: 0.36078432, g: 0.41960785, b: 0.7529412, a: 1}
+  m_Color: {r: 0.41960785, g: 0.48235294, b: 0.7882353, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 1
