@@ -18,6 +18,16 @@ public class DeckManager : MonoBehaviour
     [Header("스마트 스폰")]
     [SerializeField] private float smartSpawnChance = 0.4f;   // 라인 완성 블록이 나올 확률
 
+    [Header("풀 수 있는 덱 보장")]
+    [Tooltip("덱 3개를 어떤 순서로든 모두 놓을 수 있을 때까지 다시 뽑음")]
+    [SerializeField] private bool solvableInClassic = false;
+    [SerializeField] private bool solvableInTimeAttack = false;
+    [SerializeField] private bool solvableInObstacle = true;
+    [SerializeField] private int solvableRerollMax = 30;
+
+    // 이번 덱의 프리팹 (돌 위치 검사용)
+    private GameObject[] currentPrefabs = new GameObject[3];
+
     [Header("덱 터치 영역")]
     [Tooltip("덱 영역의 위쪽 경계 (이 Y보다 아래를 터치해야 덱으로 인정)")]
     [SerializeField] private float deckTouchTop = -4.2f;
@@ -131,11 +141,12 @@ public class DeckManager : MonoBehaviour
         // 후보 목록을 한 번만 계산해서 3개 스폰에 재사용
         BuildCandidateLists();
 
+        // 3개를 먼저 고르고, 필요하면 "풀 수 있는 덱"이 될 때까지 다시 뽑음
+        PickDeck(currentPrefabs);
+
         for (int i = 0; i < spawnPoints.Length; i++)
         {
-            GameObject selectedPrefab = GetSmartBlock();
-
-            GameObject newBlock = Instantiate(selectedPrefab, spawnPoints[i].position, Quaternion.identity);
+            GameObject newBlock = Instantiate(currentPrefabs[i], spawnPoints[i].position, Quaternion.identity);
             newBlock.transform.localScale = Vector3.one * deckScale;
 
             AlignBlockToSpawnPoint(newBlock, spawnPoints[i].position);
@@ -145,8 +156,41 @@ public class DeckManager : MonoBehaviour
 
         Debug.Log($"덱 스폰 완료 (라인완성 후보 {lineCompleters.Count}종 / 배치가능 {placeable.Count}종)");
 
+        // [장애물 모드] 덱을 다 놓을 수 있는 범위에서 돌 생성
+        BoardManager.Instance.SpawnStonesForTurn(currentPrefabs);
+
         // 새 블록이 스폰되었을 때도 놓을 공간이 있는지 검사
         BoardManager.Instance.CheckGameOver(currentBlocks);
+    }
+
+    private void PickDeck(GameObject[] result)
+    {
+        for (int i = 0; i < result.Length; i++) result[i] = GetSmartBlock();
+        if (!UseSolvableDeck()) return;
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
+        for (int attempt = 1; attempt <= solvableRerollMax; attempt++)
+        {
+            if (BoardManager.Instance.IsDeckSolvable(result))
+            {
+                Debug.Log($"[Deck] 풀 수 있는 덱 ({attempt}번째 시도, {sw.Elapsed.TotalMilliseconds:F1}ms)");
+                return;
+            }
+            for (int i = 0; i < result.Length; i++) result[i] = GetSmartBlock();
+        }
+
+        Debug.LogWarning($"[Deck] {solvableRerollMax}번 안에 못 찾음 — 마지막 덱 사용 ({sw.Elapsed.TotalMilliseconds:F1}ms)");
+    }
+
+    private bool UseSolvableDeck()
+    {
+        switch (GameModeManager.Current)
+        {
+            case GameMode.Obstacle:   return solvableInObstacle;
+            case GameMode.TimeAttack: return solvableInTimeAttack;
+            default:                  return solvableInClassic;
+        }
     }
 
     // ===== 스마트 스폰 =====

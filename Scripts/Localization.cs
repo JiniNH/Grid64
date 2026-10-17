@@ -21,6 +21,7 @@ public static class Localization
         // ===== 메인 메뉴 =====
         { "mode_classic",      new[] { "클  래  식",              "Classic" } },
         { "mode_timeattack",   new[] { "타 임 어 택",            "Time Attack" } },
+        { "mode_obstacle",     new[] { "장 애 물",              "Obstacle" } },
         { "best",              new[] { "최고 기록",           "Best" } },
 
         // ===== 설정 =====

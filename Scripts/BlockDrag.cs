@@ -170,7 +170,7 @@ public class BlockDrag : MonoBehaviour
                 canPlace = false;
                 break;
             }
-            else if (BoardManager.Instance.gridData[gridIndex.x, gridIndex.y] == 1)
+            else if (BoardManager.Instance.gridData[gridIndex.x, gridIndex.y] != 0)
             {
                 canPlace = false;
                 break;

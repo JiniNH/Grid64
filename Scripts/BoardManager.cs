@@ -100,6 +100,34 @@ public class BoardManager : MonoBehaviour
     public TextMeshProUGUI reviveCountdownText;    // 남은 초
     public TextMeshProUGUI reviveScoreText;        // 현재 점수
 
+    [Header("장애물 (돌덩이)")]
+    public Stone stonePrefab;
+    public bool debugPlaceStone = false;     // 테스트: 시작할 때 보드에 돌 1개
+    public int debugStoneHp = 2;
+    public const int CELL_STONE = 2;         // gridData: 0 빈칸 / 1 블록 / 2 돌
+
+    [Tooltip("돌 파괴 보너스 (내구도 1 / 2 / 3)")]
+    public int[] stoneBreakBonus = { 300, 800, 1500 };
+
+    [Header("장애물 모드 — 시작 배치")]
+    [Tooltip("시작 시 깔아둘 일반 블록 칸 수 (x~y 랜덤)")]
+    public Vector2Int startFillCells = new Vector2Int(14, 18);
+    [Tooltip("한 줄(가로·세로)에 미리 채울 수 있는 최대 칸 수 — 완성 줄 방지")]
+    public int startMaxPerLine = 6;
+    [Tooltip("시작 배치에 쓸 블록의 최대 칸 수 (작은 모양만)")]
+    public int startPieceMaxCells = 4;
+
+    [Header("장애물 모드 — 턴별 난이도")]
+    public StoneTier[] stoneTiers =
+    {
+        new StoneTier { fromTurn = 1,  spawnEvery = 2, maxStones = 3, hp1 = 100, hp2 = 0,  hp3 = 0  },
+        new StoneTier { fromTurn = 6,  spawnEvery = 1, maxStones = 4, hp1 = 70,  hp2 = 30, hp3 = 0  },
+        new StoneTier { fromTurn = 16, spawnEvery = 1, maxStones = 4, hp1 = 40,  hp2 = 40, hp3 = 20 },
+        new StoneTier { fromTurn = 31, spawnEvery = 1, maxStones = 5, hp1 = 30,  hp2 = 40, hp3 = 30 },
+    };
+
+    private int stoneTurn = 0;   // 장애물 모드에서 덱이 나온 횟수
+
     // =====================================================================
     //  내부 상태
     // =====================================================================
@@ -151,6 +179,10 @@ public class BoardManager : MonoBehaviour
     void Start()
     {
         InitializeBoard();
+        // [장애물 모드] 시작 보드에 일반 블록 미리 배치
+        if (GameModeManager.Current == GameMode.Obstacle) SetupObstacleStart();        
+        if (debugPlaceStone) PlaceStone(3, 3, debugStoneHp);
+
         UpdateFeverUI();
 
         // 현재 모드의 최고 기록
@@ -228,6 +260,217 @@ public class BoardManager : MonoBehaviour
         return false;
     }
 
+    // 빈칸에 돌덩이를 놓음
+    public void PlaceStone(int x, int y, int hp)
+    {
+        if (stonePrefab == null || !IsValidAndEmpty(x, y)) return;
+
+        Stone stone = Instantiate(stonePrefab, GetWorldPosition(x, y), Quaternion.identity);
+        stone.Init(hp);
+        gridData[x, y] = CELL_STONE;
+        boardObjects[x, y] = stone.gameObject;
+    }
+
+    // =====================================================================
+    //  [장애물 모드] 시작 배치
+    // =====================================================================
+
+    private void SetupObstacleStart()
+    {
+        if (DeckManager.Instance == null) return;
+
+        // 작은 블록 모양만 후보로
+        List<GameObject> pieces = new List<GameObject>();
+        foreach (GameObject p in DeckManager.Instance.blockPrefabs)
+            if (p != null && CountParts(p) <= startPieceMaxCells) pieces.Add(p);
+        if (pieces.Count == 0) return;
+
+        int target = Random.Range(startFillCells.x, startFillCells.y + 1);
+        int filled = 0;
+
+        for (int tries = 0; tries < 300 && filled < target; tries++)
+        {
+            GameObject prefab = pieces[Random.Range(0, pieces.Count)];
+            int size = CountParts(prefab);
+            if (filled + size > startFillCells.y) continue;   // 최대치 초과 방지
+
+            int x = Random.Range(0, width);
+            int y = Random.Range(0, height);
+            if (!CanPlaceStartPiece(prefab, x, y)) continue;
+
+            PlaceStartPiece(prefab, x, y);
+            filled += size;
+        }
+
+        Debug.Log($"🧱 시작 배치 {filled}칸 (목표 {target})");
+    }
+
+    private int CountParts(GameObject block)
+    {
+        int count = 0;
+        foreach (Transform child in block.transform)
+            if (child.name != "Shadow_Auto") count++;
+        return count;
+    }
+
+    // 블록을 (gridX, gridY)에 놓았을 때 차지하는 칸
+    private List<Vector2Int> GetPieceCells(GameObject block, int gridX, int gridY)
+    {
+        List<Vector2Int> cells = new List<Vector2Int>();
+        Vector2 basePos = GetWorldPosition(gridX, gridY);
+        foreach (Transform child in block.transform)
+        {
+            if (child.name == "Shadow_Auto") continue;
+            cells.Add(GetGridIndex(basePos + (Vector2)child.localPosition));
+        }
+        return cells;
+    }
+
+    // 빈칸이면서, 놓은 뒤 어떤 줄도 startMaxPerLine을 넘지 않는지
+    private bool CanPlaceStartPiece(GameObject prefab, int gridX, int gridY)
+    {
+        if (!CanPlaceBlockAt(prefab, gridX, gridY)) return false;
+
+        List<Vector2Int> cells = GetPieceCells(prefab, gridX, gridY);
+        foreach (Vector2Int c in cells)
+        {
+            int rowCount = 0, colCount = 0;
+            for (int x = 0; x < width; x++)
+                if (gridData[x, c.y] != 0 || cells.Contains(new Vector2Int(x, c.y))) rowCount++;
+            for (int y = 0; y < height; y++)
+                if (gridData[c.x, y] != 0 || cells.Contains(new Vector2Int(c.x, y))) colCount++;
+
+            if (rowCount > startMaxPerLine || colCount > startMaxPerLine) return false;
+        }
+        return true;
+    }
+
+    // 플레이어가 놓은 것과 똑같은 상태로 보드에 등록 (드래그 불가)
+    private void PlaceStartPiece(GameObject prefab, int gridX, int gridY)
+    {
+        GameObject block = Instantiate(prefab, GetWorldPosition(gridX, gridY), Quaternion.identity);
+        block.transform.localScale = Vector3.one;
+
+        // Start() 전에 꺼서 드래그·그림자 생성이 일어나지 않게
+        BlockDrag drag = block.GetComponent<BlockDrag>();
+        if (drag != null) drag.enabled = false;
+        BoxCollider2D col = block.GetComponent<BoxCollider2D>();
+        if (col != null) col.enabled = false;
+
+        foreach (Transform child in block.transform)
+        {
+            if (child.name == "Shadow_Auto") continue;
+            Vector2Int idx = GetGridIndex(child.position);
+            gridData[idx.x, idx.y] = 1;
+            boardObjects[idx.x, idx.y] = child.gameObject;
+        }
+    }
+
+    // =====================================================================
+    //  [장애물 모드] 돌 생성 (DeckManager.SpawnBlocks에서 호출)
+    // =====================================================================
+
+    public void SpawnStonesForTurn(GameObject[] deckPrefabs)
+    {
+        if (GameModeManager.Current != GameMode.Obstacle || stonePrefab == null) return;
+
+        stoneTurn++;
+        StoneTier tier = GetStoneTier(stoneTurn);
+        if (tier == null) return;
+
+        // N턴마다 생성 (구간 시작 턴 기준)
+        if ((stoneTurn - tier.fromTurn) % Mathf.Max(1, tier.spawnEvery) != 0) return;
+
+        int room = tier.maxStones - CountStones();
+        if (room <= 0)
+        {
+            Debug.Log($"🪨 {stoneTurn}턴 — 돌 {tier.maxStones}개로 최대, 생성 안 함");
+            return;
+        }
+
+        int count = Mathf.Min(Mathf.Max(1, tier.count), room);
+
+        for (int n = 0; n < count; n++)
+        {
+            int hp = RollStoneHp(tier);
+            if (!TryFindStoneCell(deckPrefabs, hp, out Vector2Int cell))
+            {
+                Debug.Log($"🪨 {stoneTurn}턴 — 덱을 다 놓을 수 있는 자리가 없어 {n}/{count}개만 생성");
+                break;
+            }
+
+            PlaceStone(cell.x, cell.y, hp);
+            Debug.Log($"🪨 {stoneTurn}턴 — 돌 생성 ({cell.x},{cell.y}) 내구도 {hp}, 보드 위 {CountStones()}/{tier.maxStones}");
+        }
+    }
+
+    // 빈칸 중 랜덤, 단 돌을 놓아도 덱 3개를 모두 놓을 수 있는 칸만
+    private bool TryFindStoneCell(GameObject[] deckPrefabs, int hp, out Vector2Int result)
+    {
+        result = default;
+
+        // 덱이 이미 빠듯하면(풀 수 없는 상태) 돌을 더하지 않음
+        if (!IsDeckSolvable(deckPrefabs)) return false;
+
+        List<Vector2Int> empties = new List<Vector2Int>();
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+                if (gridData[x, y] == 0) empties.Add(new Vector2Int(x, y));
+
+        // 섞어서 앞에서부터 검사 = 랜덤 위치
+        for (int i = empties.Count - 1; i > 0; i--)
+        {
+            int j = Random.Range(0, i + 1);
+            (empties[i], empties[j]) = (empties[j], empties[i]);
+        }
+
+        foreach (Vector2Int c in empties)
+        {
+            if (IsDeckSolvable(deckPrefabs, DeckSolver.Bit(c.x, c.y), hp >= 2))
+            {
+                result = c;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // 현재 턴에 해당하는 마지막 구간
+    private StoneTier GetStoneTier(int turn)
+    {
+        StoneTier result = null;
+        foreach (StoneTier t in stoneTiers)
+            if (t != null && turn >= t.fromTurn) result = t;
+        return result;
+    }
+
+    private int RollStoneHp(StoneTier tier)
+    {
+        int total = tier.hp1 + tier.hp2 + tier.hp3;
+        if (total <= 0) return 1;
+
+        int r = Random.Range(0, total);
+        if (r < tier.hp1) return 1;
+        if (r < tier.hp1 + tier.hp2) return 2;
+        return 3;
+    }
+
+    private int GetStoneBonus(int maxHp)
+    {
+        if (stoneBreakBonus == null || stoneBreakBonus.Length == 0) return 0;
+        int i = Mathf.Clamp(maxHp, 1, stoneBreakBonus.Length) - 1;
+        return stoneBreakBonus[i];
+    }
+
+    private int CountStones()
+    {
+        int count = 0;
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+                if (gridData[x, y] == CELL_STONE) count++;
+        return count;
+    }
+
     private bool IsBoardEmpty()
     {
         for (int x = 0; x < width; x++)
@@ -282,8 +525,36 @@ public class BoardManager : MonoBehaviour
         int linesClearedCount = rowCleared + colCleared;
 
         // 꽉 찬 줄의 블록 파괴 및 배열 초기화
+        int stonesBroken = 0;
+        int stoneBonus = 0;
+        HashSet<Vector2Int> handled = new HashSet<Vector2Int>();   // 가로·세로가 겹치는 칸은 한 번만 처리
+
         foreach (Vector2Int pos in linesToClear)
         {
+            if (!handled.Add(pos)) continue;
+
+            // [장애물] 돌덩이는 내구도만 깎고, 0이 되면 부서짐
+            if (gridData[pos.x, pos.y] == CELL_STONE)
+            {
+                Stone stone = boardObjects[pos.x, pos.y] != null ? boardObjects[pos.x, pos.y].GetComponent<Stone>() : null;
+                if (stone != null && !stone.Hit()) continue;   // 아직 남음 → 칸 유지
+
+                if (explosionParticlePrefab != null && stone != null)
+                {
+                    GameObject fx = Instantiate(explosionParticlePrefab, GetWorldPosition(pos.x, pos.y), Quaternion.identity);
+                    ParticleSystem ps = fx.GetComponentInChildren<ParticleSystem>();
+                    if (ps != null) { var main = ps.main; main.startColor = stone.BodyColor; }
+                    Destroy(fx, 2f);
+                }
+
+                if (boardObjects[pos.x, pos.y] != null) Destroy(boardObjects[pos.x, pos.y]);
+                boardObjects[pos.x, pos.y] = null;
+                gridData[pos.x, pos.y] = 0;
+                stonesBroken++;
+                stoneBonus += GetStoneBonus(stone.MaxHp);
+                continue;
+            }
+
             if (boardObjects[pos.x, pos.y] != null)
             {
                 if (explosionParticlePrefab != null)
@@ -309,6 +580,12 @@ public class BoardManager : MonoBehaviour
                 boardObjects[pos.x, pos.y] = null;
             }
             gridData[pos.x, pos.y] = 0;
+        }
+
+        if (stonesBroken > 0)
+        {
+            AddScore(stoneBonus);
+            Debug.Log($"🪨 돌 {stonesBroken}개 파괴! +{stoneBonus}점");
         }
 
         if (linesClearedCount > 0)
@@ -845,6 +1122,51 @@ public class BoardManager : MonoBehaviour
             if (!IsValidAndEmpty(childGridIndex.x, childGridIndex.y)) return false;
         }
         return true;
+    }
+
+    // =====================================================================
+    //  풀 수 있는 덱 검사 (DeckSolver)
+    // =====================================================================
+
+    // 덱 블록들을 어떤 순서로든 모두 놓을 수 있는지
+    // extraCells: 가상으로 추가할 칸 (돌 위치 검사용), extraFixed: 그 칸이 줄 클리어로 안 지워지는지
+    public bool IsDeckSolvable(IList<GameObject> blocks, ulong extraCells = 0, bool extraFixed = false)
+    {
+        if (width != 8 || height != 8) return true;   // 비트보드는 8x8 전용
+
+        GetBitboards(out ulong board, out ulong fixedMask);
+        board |= extraCells;
+        if (extraFixed) fixedMask |= extraCells;
+
+        List<ulong[]> pieces = new List<ulong[]>();
+        foreach (GameObject b in blocks)
+            if (b != null) pieces.Add(DeckSolver.GetPlacements(b));
+
+        return DeckSolver.CanPlaceAll(board, fixedMask, pieces);
+    }
+
+    // 현재 보드 → 비트보드. fixedMask = 한 번 지워져도 남는 돌(남은 내구도 2 이상)
+    private void GetBitboards(out ulong board, out ulong fixedMask)
+    {
+        board = 0;
+        fixedMask = 0;
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                if (gridData[x, y] == 0) continue;
+
+                ulong bit = DeckSolver.Bit(x, y);
+                board |= bit;
+
+                if (gridData[x, y] == CELL_STONE && boardObjects[x, y] != null)
+                {
+                    Stone s = boardObjects[x, y].GetComponent<Stone>();
+                    if (s != null && s.Hp >= 2) fixedMask |= bit;
+                }
+            }
+        }
     }
 
     // =====================================================================

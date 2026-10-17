@@ -11,10 +11,12 @@ public class MainMenuUI : MonoBehaviour
     [Header("버튼")]
     public Button classicButton;
     public Button timeAttackButton;
+    public Button obstacleButton;                 // 추가
 
     [Header("최고 기록 표시")]
     public TextMeshProUGUI classicBestText;
     public TextMeshProUGUI timeAttackBestText;
+    public TextMeshProUGUI obstacleBestText;      // 추가
 
     [Header("타이틀 연출")]
     public Transform titleTransform;
@@ -47,6 +49,9 @@ public class MainMenuUI : MonoBehaviour
 
         if (timeAttackButton != null)
             timeAttackButton.onClick.AddListener(() => StartGame(GameMode.TimeAttack));
+
+        if (obstacleButton != null)
+            obstacleButton.onClick.AddListener(() => StartGame(GameMode.Obstacle));
 
         if (settingsPanel != null) settingsPanel.SetActive(false);
         if (settingsButton != null) settingsButton.onClick.AddListener(OpenSettings);
@@ -115,6 +120,9 @@ public class MainMenuUI : MonoBehaviour
 
         if (timeAttackBestText != null)
             timeAttackBestText.text = GameModeManager.GetBestScore(GameMode.TimeAttack).ToString("N0");
+            
+        if (obstacleBestText != null)
+            obstacleBestText.text = GameModeManager.GetBestScore(GameMode.Obstacle).ToString("N0");
     }
 
     private void StartGame(GameMode mode)

@@ -2,6 +2,7 @@ using UnityEngine;
 using GoogleMobileAds.Api;
 using UnityEngine.SceneManagement;
 using System;
+using System.Collections;
 
 public class AdManager : MonoBehaviour
 {
@@ -15,7 +16,7 @@ public class AdManager : MonoBehaviour
     [Header("실제 광고 ID (출시 직전에만 사용)")]
     [SerializeField] private string realBannerId = "YOUR_BANNER_AD_UNIT_ID";
     [SerializeField] private string realInterstitialId = "YOUR_INTERSTITIAL_AD_UNIT_ID";
-    [SerializeField] private string realRewardedId = "YOUR_REWARDED_AD_UNIT_ID";   // AdMob에서 보상형 광고 단위 생성 후 입력
+    [SerializeField] private string realRewardedId = "YOUR_REWARDED_AD_UNIT_ID";   // 실제 값은 인스펙터(프리팹)에 입력
 
     [Header("테스트 모드 (개발 중에는 반드시 true)")]
     [SerializeField] private bool useTestAds = true;
@@ -25,17 +26,31 @@ public class AdManager : MonoBehaviour
     private RewardedAd rewardedAd;
 
     // 전면광고 노출 빈도 조절
-    [SerializeField] private int gameOverCountForAd = 3;   // 게임오버 N회마다 전면광고
+    [SerializeField] private int gameOverCountForAd = 2;         // 게임오버 N회마다 전면광고
+    [SerializeField] private float minPlaySecondsForQuit = 30f;  // 이보다 짧게 한 판은 다시하기·나가기를 카운트하지 않음
+    [SerializeField] private float minSecondsBetweenAds = 60f;   // 전면 광고 최소 간격
     private int gameOverCount = 0;
+    private float lastInterstitialTime = -999f;
 
     // 부활한 판은 게임오버 때 전면광고 생략 (한 판에 광고 두 번 방지)
     private bool skipNextInterstitial = false;
+
+    // 로드 실패 시 재시도 (5 → 10 → 20 → 40 → 60초, 이후 60초 간격)
+    private bool interstitialLoading, rewardedLoading;
+    private int interstitialRetry, rewardedRetry;
+
+    // 배너
+    private bool adsInitialized;     // SDK 초기화 끝났는지
+    private int bannerRetry;
+    private int bannerRequestId;     // 예전 요청의 재시도가 새 배너를 지우지 않게
 
     // 전면·보상형 광고가 화면을 덮고 있는 중인지 (PauseMenu가 참고)
     public bool IsShowingFullScreenAd { get; private set; }
 
     // 보상형 광고를 바로 보여줄 수 있는지 (오프라인이면 false)
     public bool IsRewardedReady => rewardedAd != null && rewardedAd.CanShowAd();
+
+    // ※ 로그는 영어로 작성 — 폰 로그(Android Logcat)에서 한글이 깨지기 때문
 
     void Awake()
     {
@@ -62,8 +77,8 @@ public class AdManager : MonoBehaviour
         // 새 판이 시작되므로 부활 기록 초기화
         skipNextInterstitial = false;
 
-        // 씬 전환으로 사라진 배너를 다시 생성
-        LoadBanner();
+        // 초기화 전이면 초기화 콜백에서 로드하므로 생략 (첫 진입 때 두 번 요청 방지)
+        if (adsInitialized) LoadBanner();
     }
 
     void Start()
@@ -74,7 +89,8 @@ public class AdManager : MonoBehaviour
         // SDK 초기화
         MobileAds.Initialize(initStatus =>
         {
-            Debug.Log("AdMob 초기화 완료");
+            Debug.Log("[Ad] AdMob initialized");
+            adsInitialized = true;
             LoadBanner();
             LoadInterstitial();
             LoadRewarded();
@@ -90,14 +106,33 @@ public class AdManager : MonoBehaviour
     {
         if (bannerView != null) bannerView.Destroy();
 
-        // 화면 하단에 적응형 배너 생성
+        int requestId = ++bannerRequestId;
+
         AdSize adaptiveSize = AdSize.GetCurrentOrientationAnchoredAdaptiveBannerAdSizeWithWidth(AdSize.FullWidth);
         bannerView = new BannerView(BannerId, adaptiveSize, AdPosition.Bottom);
 
-        AdRequest request = new AdRequest();
-        bannerView.LoadAd(request);
+        bannerView.OnBannerAdLoaded += () =>
+        {
+            bannerRetry = 0;
+            Debug.Log("[Ad] Banner loaded");
+        };
 
-        Debug.Log("배너 광고 로드 요청");
+        bannerView.OnBannerAdLoadFailed += (LoadAdError error) =>
+        {
+            if (requestId != bannerRequestId) return;   // 이미 새 배너로 교체됨
+
+            bannerRetry++;
+            float wait = RetryDelay(bannerRetry);
+            Debug.LogWarning($"[Ad] Banner load failed #{bannerRetry} (code {error?.GetCode()}) -> retry in {wait:F0}s");
+
+            StartCoroutine(RetryAfter(wait, () =>
+            {
+                if (requestId == bannerRequestId) LoadBanner();
+            }));
+        };
+
+        bannerView.LoadAd(new AdRequest());
+        Debug.Log("[Ad] Banner requested");
     }
 
     public void ShowBanner() => bannerView?.Show();
@@ -106,35 +141,47 @@ public class AdManager : MonoBehaviour
     // ===== 전면 광고 =====
     public void LoadInterstitial()
     {
+        // 로드 중이거나 이미 준비된 광고가 있으면 생략 (재시도 예약과 겹침 방지)
+        if (interstitialLoading) return;
+        if (interstitialAd != null && interstitialAd.CanShowAd()) return;
+
         if (interstitialAd != null)
         {
             interstitialAd.Destroy();
             interstitialAd = null;
         }
 
-        AdRequest request = new AdRequest();
+        interstitialLoading = true;
 
-        InterstitialAd.Load(InterstitialId, request, (InterstitialAd ad, LoadAdError error) =>
+        InterstitialAd.Load(InterstitialId, new AdRequest(), (InterstitialAd ad, LoadAdError error) =>
         {
+            interstitialLoading = false;
+
             if (error != null || ad == null)
             {
-                Debug.LogError("전면광고 로드 실패: " + error);
+                interstitialRetry++;
+                float wait = RetryDelay(interstitialRetry);
+                Debug.LogWarning($"[Ad] Interstitial load failed #{interstitialRetry} (code {error?.GetCode()}: {error?.GetMessage()}) -> retry in {wait:F0}s");
+                StartCoroutine(RetryAfter(wait, LoadInterstitial));
                 return;
             }
 
+            interstitialRetry = 0;
             interstitialAd = ad;
-            Debug.Log("전면광고 로드 완료");
+            Debug.Log("[Ad] Interstitial loaded");
 
-            // 광고가 닫히면 다음 광고를 미리 로드
+            interstitialAd.OnAdFullScreenContentOpened += () => Debug.Log("[Ad] Interstitial opened");
+
             interstitialAd.OnAdFullScreenContentClosed += () =>
             {
-                Debug.Log("전면광고 닫힘");
+                Debug.Log("[Ad] Interstitial closed");
                 IsShowingFullScreenAd = false;
                 LoadInterstitial();
             };
 
             interstitialAd.OnAdFullScreenContentFailed += (AdError e) =>
             {
+                Debug.LogWarning("[Ad] Interstitial show failed: " + e?.GetMessage());
                 IsShowingFullScreenAd = false;
                 LoadInterstitial();
             };
@@ -148,17 +195,45 @@ public class AdManager : MonoBehaviour
         if (skipNextInterstitial)
         {
             skipNextInterstitial = false;
+            Debug.Log("[Ad] Interstitial skipped - revived this game");
             return false;
         }
 
         gameOverCount++;
+        Debug.Log($"[Ad] Game over count {gameOverCount}/{gameOverCountForAd}");
 
         if (gameOverCount >= gameOverCountForAd)
         {
-            gameOverCount = 0;
-            return ShowInterstitial();
+            // 직전 광고와 너무 가까우면 이번은 건너뛰고 다음 게임오버 때 다시 시도
+            if (Time.realtimeSinceStartup - lastInterstitialTime < minSecondsBetweenAds)
+            {
+                Debug.Log("[Ad] Interstitial skipped - too soon after last ad");
+                return false;
+            }
+
+            bool shown = ShowInterstitial();
+            if (shown)
+            {
+                gameOverCount = 0;   // 실제로 띄웠을 때만 초기화
+                lastInterstitialTime = Time.realtimeSinceStartup;
+            }
+            return shown;
         }
         return false;
+    }
+
+    // 일시정지 메뉴에서 다시 시작·메인 메뉴로 나갈 때 — 광고는 띄우지 않고 카운트만 올림
+    // 카운트가 기준을 넘으면 다음 게임오버 때 전면 광고가 나옴
+    public void OnQuitFromPause(float playedSeconds)
+    {
+        if (playedSeconds < minPlaySecondsForQuit)
+        {
+            Debug.Log($"[Ad] Quit from pause after {playedSeconds:F0}s - too short, not counted");
+            return;
+        }
+
+        gameOverCount++;
+        Debug.Log($"[Ad] Quit from pause - count {gameOverCount}/{gameOverCountForAd}");
     }
 
     public bool ShowInterstitial()
@@ -166,12 +241,12 @@ public class AdManager : MonoBehaviour
         if (interstitialAd != null && interstitialAd.CanShowAd())
         {
             IsShowingFullScreenAd = true;
-            Debug.Log("▶ 전면광고 표시 (게임오버)");
+            Debug.Log("[Ad] Showing interstitial (game over)");
             interstitialAd.Show();
             return true;
         }
 
-        Debug.Log("전면광고 준비 안 됨");
+        Debug.Log("[Ad] Interstitial not ready");
         LoadInterstitial();
         return false;
     }
@@ -179,24 +254,33 @@ public class AdManager : MonoBehaviour
     // ===== 보상형 광고 (부활) =====
     public void LoadRewarded()
     {
+        if (rewardedLoading) return;
+        if (rewardedAd != null && rewardedAd.CanShowAd()) return;
+
         if (rewardedAd != null)
         {
             rewardedAd.Destroy();
             rewardedAd = null;
         }
 
-        AdRequest request = new AdRequest();
+        rewardedLoading = true;
 
-        RewardedAd.Load(RewardedId, request, (RewardedAd ad, LoadAdError error) =>
+        RewardedAd.Load(RewardedId, new AdRequest(), (RewardedAd ad, LoadAdError error) =>
         {
+            rewardedLoading = false;
+
             if (error != null || ad == null)
             {
-                Debug.LogError("보상형 광고 로드 실패: " + error);
+                rewardedRetry++;
+                float wait = RetryDelay(rewardedRetry);
+                Debug.LogWarning($"[Ad] Rewarded load failed #{rewardedRetry} (code {error?.GetCode()}: {error?.GetMessage()}) -> retry in {wait:F0}s");
+                StartCoroutine(RetryAfter(wait, LoadRewarded));
                 return;
             }
 
+            rewardedRetry = 0;
             rewardedAd = ad;
-            Debug.Log("보상형 광고 로드 완료");
+            Debug.Log("[Ad] Rewarded loaded");
         });
     }
 
@@ -206,6 +290,7 @@ public class AdManager : MonoBehaviour
     {
         if (!IsRewardedReady)
         {
+            Debug.Log("[Ad] Rewarded not ready");
             onFailed?.Invoke();
             LoadRewarded();
             return;
@@ -213,10 +298,11 @@ public class AdManager : MonoBehaviour
 
         bool earned = false;
         IsShowingFullScreenAd = true;
-        Debug.Log("▶ 보상형 광고 표시 (부활)");
+        Debug.Log("[Ad] Showing rewarded (revive)");
 
         rewardedAd.OnAdFullScreenContentClosed += () =>
         {
+            Debug.Log($"[Ad] Rewarded closed (earned: {earned})");
             IsShowingFullScreenAd = false;
 
             if (earned)
@@ -234,7 +320,7 @@ public class AdManager : MonoBehaviour
 
         rewardedAd.OnAdFullScreenContentFailed += (AdError e) =>
         {
-            Debug.LogError("보상형 광고 표시 실패: " + e);
+            Debug.LogWarning("[Ad] Rewarded show failed: " + e?.GetMessage());
             IsShowingFullScreenAd = false;
             onFailed?.Invoke();
             LoadRewarded();
@@ -242,5 +328,15 @@ public class AdManager : MonoBehaviour
 
         // 끝까지 시청하면 보상 표시만 해두고, 실제 부활은 광고가 닫힌 뒤에 처리
         rewardedAd.Show((Reward reward) => { earned = true; });
+    }
+
+    // 재시도 간격: 5, 10, 20, 40, 60, 60 … 초
+    private static float RetryDelay(int attempt) => Mathf.Min(5f * Mathf.Pow(2, attempt - 1), 60f);
+
+    // 게임오버 중(timeScale 0)에도 흐르도록 실제 시간 기준으로 대기
+    private IEnumerator RetryAfter(float seconds, Action load)
+    {
+        yield return new WaitForSecondsRealtime(seconds);
+        load();
     }
 }

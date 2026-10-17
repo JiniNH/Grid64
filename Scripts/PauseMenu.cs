@@ -67,12 +67,15 @@ public class PauseMenu : MonoBehaviour
     private void OnRestart()
     {
         SoundSettings.Flush();
+        // 이번 판을 그만두는 것도 게임오버처럼 광고 카운트에 포함 (광고는 다음 게임오버 때)
+        if (AdManager.Instance != null) AdManager.Instance.OnQuitFromPause(Time.timeSinceLevelLoad);
         if (BoardManager.Instance != null) BoardManager.Instance.RestartGame();
     }
 
     private void OnMainMenu()
     {
         SoundSettings.Flush();
+        if (AdManager.Instance != null) AdManager.Instance.OnQuitFromPause(Time.timeSinceLevelLoad);
         if (BoardManager.Instance != null) BoardManager.Instance.GoToMenu();
     }
 

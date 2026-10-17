@@ -33,7 +33,10 @@ public class TimeAttackManager : MonoBehaviour
     public float bgmPitchPerLevel = 0.03f;    // 단계당 BGM 빠르기 3%
     public TextMeshProUGUI speedUpText;       // "SPEED UP!" 알림 (평소 꺼둠)
     public TextMeshProUGUI speedLevelText;    // 현재 속도 "×1.2" (선택)
-    public float ScoreMultiplier => 1f + speedStep * speedLevel;    // SPEED UP 단계만큼 점수 배수 (×1.0 ~ ×1.5)
+
+    [Tooltip("SPEED UP 단계당 점수 배수 증가 (시간 흐름과 별개)")]
+    public float scoreStepPerLevel = 0.20f;
+    public float ScoreMultiplier => 1f + scoreStepPerLevel * speedLevel;   // ×1.0 ~ ×2.25
 
     private float elapsedPlayTime = 0f;       // 카운트다운 시작 후 흐른 시간 (일시정지 제외)
     private int speedLevel = 0;
