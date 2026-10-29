@@ -23,6 +23,8 @@ public static class Localization
         { "mode_timeattack",   new[] { "타 임 어 택",            "Time Attack" } },
         { "mode_obstacle",     new[] { "장 애 물",              "Obstacle" } },
         { "best",              new[] { "최고 기록",           "Best" } },
+        { "update_ready",      new[] { "새 버전 준비 완료",     "Update ready" } },
+        { "update_restart",    new[] { "재시작",               "Restart" } },
 
         // ===== 설정 =====
         { "settings_title",    new[] { "설 정",                "Settings" } },
@@ -44,6 +46,8 @@ public static class Localization
         { "new_record",        new[] { "신기록!",             "New Record!" } },
         { "score",             new[] { "점수",                "Score" } },
         { "share_record",      new[] { "기록 공유",            "Share Score" } },
+        { "ranking",           new[] { "랭킹",                "Ranking" } },
+        { "ranking_rank",      new[] { "내 순위 {0}위",        "My Rank #{0}" } },
         { "share_title",       new[] { "공유하기",             "Share via" } },
         { "share_message",     new[] { "Grid64 {0}에서 {1}점 달성! 🏆 도전해보세요 👉 {2}",
                                        "I scored {1} in Grid64 {0}! 🏆 Can you beat it? 👉 {2}" } },

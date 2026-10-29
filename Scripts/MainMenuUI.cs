@@ -26,6 +26,9 @@ public class MainMenuUI : MonoBehaviour
     [Tooltip("폴더블 진단용: 버전 옆에 실제 해상도 표시 (출시 전 끌 것)")]
     public bool showResolution = false;
 
+    public GameObject updatePanel;          // "새 버전 준비 완료" 바 (평소 꺼둠)
+    public Button updateRestartButton;      // 재시작 버튼
+
     [Header("설정 패널")]
     public Button settingsButton;
     public GameObject settingsPanel;
@@ -34,6 +37,8 @@ public class MainMenuUI : MonoBehaviour
     public string privacyUrl = "https://jininh.github.io/jiniworks-privacy/grid64.html";
     public Button licenseButton;
     public string licenseUrl = "https://jininh.github.io/jiniworks-privacy/grid64-licenses.html";
+
+    public Button rankingButton;            // 메인 메뉴: 전체 랭킹
 
     void Start()
     {
@@ -58,14 +63,21 @@ public class MainMenuUI : MonoBehaviour
         if (settingsCloseButton != null) settingsCloseButton.onClick.AddListener(CloseSettings);
         if (privacyButton != null) privacyButton.onClick.AddListener(() => Application.OpenURL(privacyUrl));
         if (licenseButton != null) licenseButton.onClick.AddListener(() => Application.OpenURL(licenseUrl));
+        if (rankingButton != null) rankingButton.onClick.AddListener(RankingManager.ShowAll);
 
         UpdateVersionText();
+
+        if (updatePanel != null) updatePanel.SetActive(AppUpdater.IsReady);
+        if (updateRestartButton != null) updateRestartButton.onClick.AddListener(AppUpdater.CompleteUpdate);
+        AppUpdater.Ready += OnUpdateReady;
+        AppUpdater.CheckOnce();
     }
 
     void OnDestroy()
     {
         // [언어] 씬을 떠날 때 구독 해제 (사라진 텍스트에 쓰려다 에러 나는 것 방지)
         Localization.Changed -= RefreshBestScores;
+        AppUpdater.Ready -= OnUpdateReady;
     }
 
     void Update()
@@ -85,6 +97,11 @@ public class MainMenuUI : MonoBehaviour
         {
             CloseSettings();
         }
+    }
+
+    private void OnUpdateReady()
+    {
+        if (updatePanel != null) updatePanel.SetActive(true);
     }
 
     void OnApplicationPause(bool paused)
@@ -120,7 +137,7 @@ public class MainMenuUI : MonoBehaviour
 
         if (timeAttackBestText != null)
             timeAttackBestText.text = GameModeManager.GetBestScore(GameMode.TimeAttack).ToString("N0");
-            
+
         if (obstacleBestText != null)
             obstacleBestText.text = GameModeManager.GetBestScore(GameMode.Obstacle).ToString("N0");
     }

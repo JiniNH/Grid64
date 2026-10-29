@@ -79,6 +79,8 @@ public class BoardManager : MonoBehaviour
     public Button shareButton;              // 공유 버튼 (매 게임오버마다 표시)
     public Image shareIcon;                 // 버튼 안 아이콘 (신기록이면 호박색)
     public TextMeshProUGUI shareLabel;      // 버튼 안 글자 (신기록이면 호박색)
+    public Button rankingButton;            // 게임오버: 이 모드 랭킹 보기
+    public TextMeshProUGUI rankingLabel;    // 랭킹 버튼 글자 ("랭킹" → "내 순위 N위")   ← 추가
 
     [Header("인게임 최고 기록")]
     public GameObject bestHud;                 // 왕관 + 숫자 묶음 (SafeAreaPanel 안)
@@ -204,6 +206,9 @@ public class BoardManager : MonoBehaviour
             shareButton.gameObject.SetActive(false);
             shareButton.onClick.AddListener(ShareRecord);
         }
+
+        if (rankingButton != null)
+            rankingButton.onClick.AddListener(() => RankingManager.Show(GameModeManager.Current));
 
         // 인게임 최고 기록
         RefreshBestHud();
@@ -1648,6 +1653,11 @@ public class BoardManager : MonoBehaviour
 
         if (newRecordBadge != null)
             newRecordBadge.SetActive(isNewRecord);
+
+        // 랭킹: 로그인돼 있으면 "..." 표시 → 순위를 받으면 "내 순위 N위"로 바꾸며 튀는 연출
+        if (rankingLabel != null)
+            rankingLabel.text = RankingManager.IsSignedIn ? "..." : Localization.Get("ranking");
+        RankingManager.SubmitScore(GameModeManager.Current, currentScore, OnRankLoaded);
         
         // 기록 공유 — 매 게임오버마다 표시, 신기록이면 호박색으로 강조
         lastGameWasRecord = isNewRecord;
@@ -1672,6 +1682,46 @@ public class BoardManager : MonoBehaviour
 
         // 인앱 리뷰 — 신기록이면서 이번 판에 광고(전면·부활)를 보지 않았을 때만
         InAppReview.OnGameOver(isNewRecord, adShown || hasRevived);
+    }
+
+    // 순위를 받았을 때 (모르면 0). 그사이 다시 시작해서 팝업이 닫혔으면 무시
+    private void OnRankLoaded(int rank)
+    {
+        if (this == null || rankingLabel == null) return;
+        if (gameOverPopup == null || !gameOverPopup.activeInHierarchy) return;
+
+        if (rank <= 0)
+        {
+            rankingLabel.text = Localization.Get("ranking");
+            return;
+        }
+
+        rankingLabel.text = Localization.Format("ranking_rank", rank.ToString("N0"));
+        if (rankingButton != null) StartCoroutine(PopUnscaled(rankingButton.transform));
+    }
+
+    // 게임오버(시간 정지) 중에도 동작하는 튀는 연출 — 기존 PopScale은 멈춘 시간 기준이라 안 움직임
+    private IEnumerator PopUnscaled(Transform target)
+    {
+        const float grow = 0.12f, settle = 0.12f, peak = 1.15f;
+
+        float t = 0f;
+        while (t < grow)
+        {
+            t += Time.unscaledDeltaTime;
+            target.localScale = Vector3.one * Mathf.Lerp(1f, peak, t / grow);
+            yield return null;
+        }
+
+        t = 0f;
+        while (t < settle)
+        {
+            t += Time.unscaledDeltaTime;
+            target.localScale = Vector3.one * Mathf.Lerp(peak, 1f, t / settle);
+            yield return null;
+        }
+
+        target.localScale = Vector3.one;
     }
 
     // 신기록을 시스템 공유 창으로 전송 (카톡, 인스타, X 등)
